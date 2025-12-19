@@ -248,32 +248,23 @@ The commands below use <strong>vswhere</strong> to locate VS/BuildTools automati
   <pre style="margin: 0.6rem 0 0 0; white-space: pre-wrap;"><code># From the repository root folder:
 # cd path\to\rust_plot
 
-$vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
 if (!(Test-Path $vswhere)) { throw "vswhere.exe not found. Install Visual Studio Build Tools 2022." }
 
-$vsPath = & $vswhere -latest -products * `
-  -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-  -property installationPath
-
-if (-not $vsPath) { throw "Visual Studio/Build Tools with VC++ tools not found." }
+$vsPath = (& $vswhere -latest -products "*" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1).Trim()
+if (-not $vsPath) { throw "Visual Studio / Build Tools with MSVC tools not found." }
 
 $vsdev = Join-Path $vsPath "Common7\Tools\VsDevCmd.bat"
+if (!(Test-Path $vsdev)) { throw "VsDevCmd.bat not found at: $vsdev" }
 
-# Import the VS environment into the current PowerShell session:
-cmd /c "`"$vsdev`" -arch=x64 -host_arch=x64 &gt;nul &amp;&amp; set" |
-  ForEach-Object {
-    if ($_ -match "^(.*?)=(.*)$") {
-      [System.Environment]::SetEnvironmentVariable($matches[1], $matches[2])
-    }
-  }
+# IMPORTANT: do NOT use `where link.exe` here; MSYS2/Git can ship a different link.exe.
+$link = (& $vswhere -latest -products "*" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -find "VC\Tools\MSVC\*\bin\Hostx64\x64\link.exe" | Select-Object -First 1).Trim()
+if (-not (Test-Path $link)) { throw "MSVC link.exe not found. Ensure the 'MSVC v143' component is installed." }
 
-# Ensure MSVC's link.exe is the linker Cargo uses
-$link = (where.exe link.exe | Select-Object -First 1)
-$env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = $link
-
-# Build and run
-cargo run --bin line
-cargo run --bin histogram</code></pre>
+# Run Cargo inside the MSVC environment so cl.exe + Windows SDK headers/libs are available.
+cmd /c "call `"$vsdev`" -arch=x64 -host_arch=x64 >nul && set CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=`"$link`" && cargo run --bin line"
+cmd /c "call `"$vsdev`" -arch=x64 -host_arch=x64 >nul && set CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER=`"$link`" && cargo run --bin histogram"
+</code></pre>
 </div>
 
 ### Step 4 — CMD.exe (classic Developer Command Prompt style)
