@@ -241,92 +241,112 @@ These provide:
 
 ### Step 3 — One-session build/run in PowerShell (robust and copy-paste friendly)
 
-The commands below use <strong>vswhere</strong> to locate VS/BuildTools automatically, load the MSVC environment for the current terminal session, then build/run.
+<h2 style="margin-top: 1.5rem;">Windows (PowerShell) — MSVC toolchain build &amp; run</h2>
 
-<div style="background:#f7f7f9; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.9rem 1rem; margin: 0.75rem 0 1rem 0;">
-  <strong>PowerShell (recommended)</strong>
-  <pre style="background:#0b1020; color:#e6edf3; padding: 12px 14px; border-radius: 10px; overflow-x:auto;"><code># From the repository root folder (the folder that contains Cargo.toml):
-# cd path\to\rust_plot
+  <p style="max-width: 900px;">
+    This section provides a reliable PowerShell workflow for building and running this project on Windows using the
+    <strong>MSVC</strong> toolchain. The goal is to avoid common issues where MSYS2/Git Bash tools shadow MSVC tooling
+    (especially <code>link.exe</code>), and to ensure the linker can find critical Windows SDK libraries such as
+    <code>kernel32.lib</code>.
+  </p>
 
-# --- 0) Optional: ensure you are using the MSVC toolchain ---
-# rustup default stable-x86_64-pc-windows-msvc
+  <div style="padding: 0.85rem 1rem; border-left: 4px solid #d0d7de; background: #f6f8fa; border-radius: 8px; margin: 1rem 0;">
+    <p style="margin: 0;">
+      <strong>Important:</strong> In the commands below, some paths are <em>system-dependent</em>.
+      If you copy/paste these commands, you must update the paths/versions according to your own installation.
+      The comments explain exactly what to change and how to locate the correct values.
+    </p>
+  </div>
 
-# --- 1) Locate Visual Studio Build Tools / Visual Studio (MSVC) ---
-$vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
-if (!(Test-Path $vswhere)) { throw "vswhere.exe not found. Install Visual Studio Build Tools 2022 (C++ Build Tools)." }
+  <h3 style="margin-top: 1.25rem;">How to find the required paths on your system</h3>
 
-$vsPath = (& $vswhere -latest -products "*" -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath |
-  Select-Object -First 1).Trim()
-if (-not $vsPath) { throw "Visual Studio / Build Tools with 'MSVC v143 - VS 2022 C++ x64/x86 build tools' not found." }
+  <ul style="max-width: 950px; line-height: 1.65;">
+    <li>
+      <strong>Find your MSVC toolset version (<code>$msvcVer</code>)</strong><br />
+      Navigate to:
+      <code>C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\</code><br />
+      The folder name(s) inside (example: <code>14.44.35207</code>) are your MSVC versions.
+      Pick the newest one.
+    </li>
+    <li>
+      <strong>Find your Windows SDK version (<code>$sdkVer</code>)</strong><br />
+      Navigate to:
+      <code>C:\Program Files (x86)\Windows Kits\10\Lib\</code><br />
+      The folder name(s) inside (example: <code>10.0.22621.0</code>) are SDK versions.
+      The script below selects the newest automatically.
+    </li>
+    <li>
+      <strong>Find MSVC <code>link.exe</code> path</strong><br />
+      It is typically located at:<br />
+      <code>C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\&lt;MSVC_VERSION&gt;\bin\Hostx64\x64\link.exe</code><br />
+      Replace <code>&lt;MSVC_VERSION&gt;</code> with the same value used in <code>$msvcVer</code>.
+    </li>
+    <li>
+      <strong>Project folder path</strong><br />
+      Update the <code>cd</code> command to the folder where your project’s <code>Cargo.toml</code> is located.
+      (In this example, it is a folder under the Desktop.)
+    </li>
+  </ul>
 
-# --- 2) Pick the newest COMPLETE MSVC toolset (bin + include + lib) ---
-$msvcRoot = Join-Path $vsPath "VC\Tools\MSVC"
+  <h3 style="margin-top: 1.25rem;">PowerShell commands</h3>
 
-$toolset = Get-ChildItem $msvcRoot -Directory |
-  Sort-Object Name -Descending |
-  Where-Object {
-    Test-Path (Join-Path $_.FullName "bin\Hostx64\x64\cl.exe")  -and
-    Test-Path (Join-Path $_.FullName "bin\Hostx64\x64\link.exe") -and
-    Test-Path (Join-Path $_.FullName "include\stddef.h") -and
-    Test-Path (Join-Path $_.FullName "lib\x64\msvcrt.lib")
-  } |
-  Select-Object -First 1
+  <pre style="background:#0b1020; color:#e6edf3; padding: 1rem; border-radius: 10px; overflow:auto; font-size: 0.92rem; line-height: 1.55;">
+# 1) MSVC version you have (taken from your MSVC folder name)
+#    Change this to match your system.
+#    How to find it:
+#      Open:   C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\
+#      Pick the newest folder name (example: 14.44.35207)
+$msvcVer = "14.44.35207"
 
-if (-not $toolset) { throw "No complete MSVC toolset found under: $msvcRoot" }
+# 2) MSVC lib directory (x64)
+#    This is the MSVC toolchain library directory used by the linker.
+#    If you installed Visual Studio in a different edition/location, you may need to adjust the base path.
+$msvcLib = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\$msvcVer\lib\x64"
 
-$msvcVer     = $toolset.Name
-$msvcBin     = Join-Path $toolset.FullName "bin\Hostx64\x64"
-$msvcInclude = Join-Path $toolset.FullName "include"
-$msvcLib     = Join-Path $toolset.FullName "lib\x64"
-$linkExe     = Join-Path $msvcBin "link.exe"
+# 3) Windows SDK (Windows Kits) library directories
+#    The script below auto-selects the newest installed SDK version under:
+#      C:\Program Files (x86)\Windows Kits\10\Lib\
+#    If your Windows Kits is installed elsewhere, update $sdkRoot.
+$sdkRoot = "C:\Program Files (x86)\Windows Kits\10\Lib"
+$sdkVer  = (Get-ChildItem $sdkRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1).Name
 
-# --- 3) Pick a Windows 10/11 SDK that contains kernel32.lib + ucrt.lib ---
-$sdkLibRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Lib"
-$sdkIncRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\Include"
+#    These two are required for Windows system libraries:
+#      - um\x64   (contains kernel32.lib, user32.lib, etc.)
+#      - ucrt\x64 (contains Universal CRT libraries)
+$umLib   = Join-Path $sdkRoot "$sdkVer\um\x64"
+$ucrtLib = Join-Path $sdkRoot "$sdkVer\ucrt\x64"
 
-$sdk = Get-ChildItem $sdkLibRoot -Directory |
-  Sort-Object Name -Descending |
-  Where-Object {
-    Test-Path (Join-Path $_.FullName "um\x64\kernel32.lib") -and
-    Test-Path (Join-Path $_.FullName "ucrt\x64\ucrt.lib")
-  } |
-  Select-Object -First 1
+# 4) Sanity checks
+#    These should print: True / True
+#    If either prints False, your installation is missing components or paths are wrong.
+Test-Path (Join-Path $umLib "kernel32.lib")
+Test-Path (Join-Path $msvcLib "msvcrt.lib")
 
-if (-not $sdk) { throw "Windows 10/11 SDK libs not found under: $sdkLibRoot (install 'Windows 10/11 SDK' via VS Installer)." }
+# 5) Tell the linker where to find .lib files (critical on Windows)
+#    We prepend MSVC + Windows SDK library paths to the LIB environment variable.
+#    This helps avoid "kernel32.lib not found" and related linker errors.
+$env:LIB = "$msvcLib;$ucrtLib;$umLib;$env:LIB"
 
-$sdkVer  = $sdk.Name
-$umLib   = Join-Path $sdk.FullName "um\x64"
-$ucrtLib = Join-Path $sdk.FullName "ucrt\x64"
+# 6) Force Cargo to use MSVC's linker (NOT MSYS2/Git's link.exe)
+#    Change this path if your MSVC version differs or if Visual Studio is installed elsewhere.
+$env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.44.35207\bin\Hostx64\x64\link.exe"
 
-$umInc     = Join-Path $sdkIncRoot "$sdkVer\um"
-$ucrtInc   = Join-Path $sdkIncRoot "$sdkVer\ucrt"
-$sharedInc = Join-Path $sdkIncRoot "$sdkVer\shared"
+# 7) Build and run from the repository root (where Cargo.toml is)
+#    Update this path to your clone location.
+cd "$env:USERPROFILE\Desktop\Rust_Plot-main\Rust_Plot-main"
 
-if (!(Test-Path (Join-Path $umInc "Windows.h"))) { throw "Windows SDK headers not found at: $umInc" }
-if (!(Test-Path (Join-Path $ucrtInc "stddef.h")))  { throw "UCRT headers not found at: $ucrtInc" }
-
-# --- 4) Export a minimal MSVC build environment in THIS PowerShell session ---
-# Put MSVC first on PATH so MSYS2/Git tools cannot shadow cl.exe/link.exe.
-$env:PATH    = "$msvcBin;$env:PATH"
-$env:INCLUDE = "$msvcInclude;$ucrtInc;$umInc;$sharedInc;$env:INCLUDE"
-$env:LIB     = "$msvcLib;$ucrtLib;$umLib;$env:LIB"
-
-# Force Cargo to use MSVC's linker explicitly (avoid /usr/bin/link.exe from MSYS2/Git)
-$env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = $linkExe
-
-Write-Host "MSVC toolset: $msvcVer"
-Write-Host "Windows SDK  : $sdkVer"
-Write-Host "link.exe     : $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER"
-
-# --- 5) Build / run (creates PNG files under .\output) ---
+#    Clean (optional) then run the binaries.
 cargo clean
 cargo run --bin line
 cargo run --bin histogram
+  </pre>
 
-# After running:
-#   Get-ChildItem .\output
-</code></pre>
-</div>
+  <div style="padding: 0.85rem 1rem; border-left: 4px solid #0969da; background: #eef6ff; border-radius: 8px; margin: 1rem 0;">
+    <p style="margin: 0;">
+      <strong>Expected result:</strong> If everything is configured correctly, the executables will run and the generated
+      plot images will be written into the <code>output/</code> folder under the repository root.
+    </p>
+  </div>
 
 ### Step 4 — CMD.exe (classic Developer Command Prompt style)
 
