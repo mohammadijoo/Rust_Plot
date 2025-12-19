@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run line (MSVC, F5)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\target\\debug\\line.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "cargo: build line (msvc)",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Run histogram (MSVC)",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}\\target\\debug\\histogram.exe",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "cargo: build histogram (msvc)",
+      "console": "integratedTerminal",
+      "stopAtEntry": false
+    }
+  ]
+}

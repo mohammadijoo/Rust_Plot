@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "cargo: build line (msvc)",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\.vscode\\cargo-msvc.ps1",
+        "build",
+        "--bin",
+        "line"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$rustc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "cargo: build histogram (msvc)",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\.vscode\\cargo-msvc.ps1",
+        "build",
+        "--bin",
+        "histogram"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "run: line.exe (from target\\debug)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\target\\debug\\line.exe",
+      "dependsOn": "cargo: build line (msvc)",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "run: histogram.exe (from target\\debug)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\target\\debug\\histogram.exe",
+      "dependsOn": "cargo: build histogram (msvc)",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
