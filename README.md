@@ -859,9 +859,9 @@ To add a new plot type (e.g., pie chart), follow this pattern:
 
 Replace <code>YOUR_VIDEO_ID</code> below with your YouTube video ID once it is available.
 
-<a href="https://www.youtube.com/watch?v=4fEkykrwqTk" target="_blank" rel="noopener noreferrer">
+<a href="https://www.youtube.com/watch?v=GLQJT52KAnc" target="_blank" rel="noopener noreferrer">
   <img
-    src="https://i.ytimg.com/vi/4fEkykrwqTk/maxresdefault.jpg"
+    src="https://i.ytimg.com/vi/GLQJT52KAnc/maxresdefault.jpg"
     alt="Rust Plotting Playground - Implementation Tutorial"
     style="max-width: 100%; border-radius: 10px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); margin-top: 0.6rem;"
   />
